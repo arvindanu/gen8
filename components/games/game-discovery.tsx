@@ -282,10 +282,13 @@ export default function GameDiscovery() {
             </>
           )}
           {search && (
-            <span className="ml-1">
-              for <span className="font-semibold text-[#242427]">"{search}"</span>
-            </span>
-          )}
+  <span className="ml-1">
+    for{" "}
+    <span className="font-semibold text-[#242427]">
+      &quot;{search}&quot;
+    </span>
+  </span>
+)}
         </div>
 
         <label className="flex items-center gap-2 text-sm text-[#77777f]">

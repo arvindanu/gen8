@@ -1,7 +1,7 @@
 
 import Link from "next/link";
 import {
-  ArrowRight, ArrowUpRight, ChevronRight,
+  ArrowRight, ChevronRight,
   Gamepad2, Sparkles, Zap
 } from "lucide-react";
 import GameDiscovery from "@/components/games/game-discovery";
