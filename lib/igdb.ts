@@ -182,3 +182,119 @@ export async function getIGDBGames(options: {
     results,
   };
 }
+
+
+export interface IGDBGameDetails {
+  id: number;
+  name: string;
+  summary?: string;
+  storyline?: string;
+  cover?: {
+    image_id: string;
+  };
+  artworks?: {
+    image_id: string;
+  }[];
+  screenshots?: {
+    image_id: string;
+  }[];
+  first_release_date?: number;
+  rating?: number;
+  aggregated_rating?: number;
+  genres?: {
+    id: number;
+    name: string;
+  }[];
+  platforms?: {
+    id: number;
+    name: string;
+  }[];
+  involved_companies?: {
+    developer?: boolean;
+    publisher?: boolean;
+    company?: {
+      name: string;
+    };
+  }[];
+  game_modes?: {
+    name: string;
+  }[];
+  themes?: {
+    name: string;
+  }[];
+  player_perspectives?: {
+    name: string;
+  }[];
+  videos?: {
+    video_id: string;
+  }[];
+  similar_games?: {
+    id: number;
+    name: string;
+    cover?: {
+      image_id: string;
+    };
+    rating?: number;
+  }[];
+}
+
+export async function getIGDBGameDetails(
+  gameId: number
+): Promise<IGDBGameDetails | null> {
+  const token = await getAccessToken();
+  const clientId = process.env.TWITCH_CLIENT_ID!;
+
+  const query = `
+    fields
+      id,
+      name,
+      summary,
+      storyline,
+      cover.image_id,
+      artworks.image_id,
+      screenshots.image_id,
+      first_release_date,
+      rating,
+      aggregated_rating,
+      genres.id,
+      genres.name,
+      platforms.id,
+      platforms.name,
+      involved_companies.developer,
+      involved_companies.publisher,
+      involved_companies.company.name,
+      game_modes.name,
+      themes.name,
+      player_perspectives.name,
+      videos.video_id,
+      similar_games.id,
+      similar_games.name,
+      similar_games.cover.image_id,
+      similar_games.rating;
+    where id = ${gameId};
+  `;
+
+  const response = await fetch("https://api.igdb.com/v4/games", {
+    method: "POST",
+    headers: {
+      "Client-ID": clientId,
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "text/plain",
+    },
+    body: query,
+    next: {
+      revalidate: 3600,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("IGDB game details error:", errorText);
+    throw new Error("Unable to fetch game details from IGDB.");
+  }
+
+  const games =
+    (await response.json()) as IGDBGameDetails[];
+
+  return games[0] ?? null;
+}

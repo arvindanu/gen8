@@ -1,7 +1,8 @@
 
 "use client";
-
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import WishlistButton from "@/components/wishlist/wishlist-button";
 import { motion } from "framer-motion";
 import {
   Search,
@@ -35,10 +36,10 @@ interface GamesResponse {
 }
 
 const SORT_OPTIONS = [
-  { label: "Popularity", value: "-added" },
-  { label: "Highest rated", value: "-rating" },
-  { label: "Newest releases", value: "-released" },
-  { label: "Metacritic score", value: "-metacritic" },
+  { label: "Popularity", value: "popularity" },
+  { label: "Highest rated", value: "rating" },
+  { label: "Newest releases", value: "released" },
+  { label: "IGDB score", value: "metacritic" },
   { label: "Name: A–Z", value: "name" },
 ];
 
@@ -56,75 +57,92 @@ function formatDate(date: string | null) {
   });
 }
 
+
+
 function GameCard({ game, index }: { game: Game; index: number }) {
   return (
     <motion.article
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: Math.min(index * 0.035, 0.3) }}
-      className="group min-w-0 overflow-hidden rounded-2xl border border-[#e9e9ec] bg-white transition-all duration-300 hover:-translate-y-1 hover:border-[#d71920]/30 hover:shadow-[0_12px_35px_rgba(0,0,0,0.08)]"
+      className="group relative min-w-0 h-full overflow-hidden rounded-2xl border border-[#e9e9ec] bg-white transition-all duration-300 hover:-translate-y-1 hover:border-[#d71920]/30 hover:shadow-[0_12px_35px_rgba(0,0,0,0.08)]"
     >
-      <div className="relative aspect-[16/10] overflow-hidden bg-[#ededf0]">
-        {game.background_image ? (
-          <div
-            role="img"
-            aria-label={`${game.name} cover artwork`}
-            className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-            style={{ backgroundImage: `url("${game.background_image}")` }}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-[#a0a0a8]">
-            <Gamepad2 size={38} />
+      <Link
+        href={`/games/${game.id}`}
+        className="block"
+        aria-label={`View details for ${game.name}`}
+      >
+        <div className="relative aspect-[16/10] overflow-hidden bg-[#ededf0]">
+          {game.background_image ? (
+            <div
+              role="img"
+              aria-label={`${game.name} cover artwork`}
+              className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+              style={{ backgroundImage: `url("${game.background_image}")` }}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-[#a0a0a8]">
+              <Gamepad2 size={38} />
+            </div>
+          )}
+
+          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
+
+          {game.metacritic !== null && (
+            <div className="absolute right-3 top-3 rounded-lg bg-black/75 px-2.5 py-1 text-xs font-bold text-white backdrop-blur">
+              IGDB {game.metacritic}
+            </div>
+          )}
+
+          <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-lg bg-black/65 px-2.5 py-1.5 text-xs font-semibold text-white backdrop-blur">
+            <Star size={13} className="fill-[#f5c451] text-[#f5c451]" />
+            {game.rating ? game.rating.toFixed(1) : "N/A"}
           </div>
-        )}
+        </div>
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
+        <div className="p-4">
+          <h3 className="line-clamp-1 text-[15px] font-bold text-[#242427] transition-colors group-hover:text-[#d71920]">
+            {game.name}
+          </h3>
 
-        {game.metacritic !== null && (
-          <div className="absolute right-3 top-3 rounded-lg bg-black/75 px-2.5 py-1 text-xs font-bold text-white backdrop-blur">
-            MC {game.metacritic}
+          <div className="mt-2 flex items-center gap-2 text-xs text-[#85858d]">
+            <CalendarDays size={13} />
+            <span>{formatDate(game.released)}</span>
           </div>
-        )}
 
-        <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-lg bg-black/65 px-2.5 py-1.5 text-xs font-semibold text-white backdrop-blur">
-          <Star size={13} className="fill-[#f5c451] text-[#f5c451]" />
-          {game.rating ? game.rating.toFixed(1) : "N/A"}
+          <div className="mt-3 flex min-h-6 flex-wrap gap-1.5">
+            {game.genres?.slice(0, 2).map((genre) => (
+              <span
+                key={genre.id}
+                className="rounded-md bg-[#f4f4f5] px-2 py-1 text-[10px] font-medium text-[#66666e]"
+              >
+                {genre.name}
+              </span>
+            ))}
+          </div>
+
+          <div className="mt-3 border-t border-[#f0f0f1] pt-3">
+            <p className="line-clamp-1 text-[11px] text-[#92929a]">
+              {game.platforms
+                ?.slice(0, 3)
+                .map((item) => item.platform.name)
+                .join(" · ") || "Platforms unavailable"}
+            </p>
+          </div>
         </div>
-      </div>
+      </Link>
 
-      <div className="p-4">
-        <h3 className="line-clamp-1 text-[15px] font-bold text-[#242427] transition-colors group-hover:text-[#d71920]">
-          {game.name}
-        </h3>
-
-        <div className="mt-2 flex items-center gap-2 text-xs text-[#85858d]">
-          <CalendarDays size={13} />
-          <span>{formatDate(game.released)}</span>
-        </div>
-
-        <div className="mt-3 flex min-h-6 flex-wrap gap-1.5">
-          {game.genres?.slice(0, 2).map((genre) => (
-            <span
-              key={genre.id}
-              className="rounded-md bg-[#f4f4f5] px-2 py-1 text-[10px] font-medium text-[#66666e]"
-            >
-              {genre.name}
-            </span>
-          ))}
-        </div>
-
-        <div className="mt-3 border-t border-[#f0f0f1] pt-3">
-          <p className="line-clamp-1 text-[11px] text-[#92929a]">
-            {game.platforms
-              ?.slice(0, 3)
-              .map((item) => item.platform.name)
-              .join(" · ") || "Platforms unavailable"}
-          </p>
-        </div>
+      <div className="absolute left-3 top-3 z-10">
+        <WishlistButton
+          game={game}
+          className="h-9 w-9 border-white/20 bg-black/65 p-0 hover:bg-black/85"
+        />
       </div>
     </motion.article>
   );
 }
+
+
 
 function GameCardSkeleton() {
   return (
@@ -146,7 +164,7 @@ export default function GameDiscovery() {
   const [games, setGames] = useState<Game[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [ordering, setOrdering] = useState("-added");
+  const [ordering, setOrdering] = useState("popularity");
   const [page, setPage] = useState(1);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
