@@ -65,17 +65,34 @@ function escapeSearch(value: string) {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
+function getIGDBHeaders() {
+  return {
+    "Client-ID": process.env.TWITCH_CLIENT_ID!,
+    Authorization: `Bearer ${cachedToken}`,
+    "Content-Type": "text/plain",
+  };
+}
+
+export interface IGDBFilters {
+  genre?: number;
+  platform?: number;
+  year?: number;
+  minRating?: number;
+}
+
 export async function getIGDBGames(options: {
   search?: string;
   page?: number;
   pageSize?: number;
   ordering?: IGDBOrdering;
+  filters?: IGDBFilters;
 }) {
   const {
     search = "",
     page = 1,
     pageSize = 20,
     ordering = "popularity",
+    filters = {},
   } = options;
 
   const token = await getAccessToken();
@@ -83,13 +100,47 @@ export async function getIGDBGames(options: {
 
   const offset = (page - 1) * pageSize;
 
+  const conditions = ["version_parent = null"];
+
+  if (filters.genre && Number.isInteger(filters.genre)) {
+    conditions.push(`genres = (${filters.genre})`);
+  }
+
+  if (filters.platform && Number.isInteger(filters.platform)) {
+    conditions.push(`platforms = (${filters.platform})`);
+  }
+
+  if (
+    filters.minRating !== undefined &&
+    Number.isFinite(filters.minRating) &&
+    filters.minRating >= 0 &&
+    filters.minRating <= 5
+  ) {
+    conditions.push(`rating >= ${Math.round(filters.minRating * 20)}`);
+  }
+
+  if (
+    filters.year &&
+    Number.isInteger(filters.year) &&
+    filters.year >= 1970 &&
+    filters.year <= 2100
+  ) {
+    const start = Math.floor(
+      new Date(Date.UTC(filters.year, 0, 1)).getTime() / 1000
+    );
+    const end = Math.floor(
+      new Date(Date.UTC(filters.year + 1, 0, 1)).getTime() / 1000
+    );
+
+    conditions.push(`first_release_date >= ${start}`);
+    conditions.push(`first_release_date < ${end}`);
+  }
+
   const searchQuery = search.trim()
     ? `search "${escapeSearch(search.trim())}";`
     : "";
 
-  const commonQuery = `${searchQuery}
-    where version_parent = null;
-  `;
+  const whereQuery = `where ${conditions.join(" & ")};`;
 
   const fields = `
     fields
@@ -107,15 +158,17 @@ export async function getIGDBGames(options: {
   `;
 
   const gamesQuery = `
+    ${searchQuery}
     ${fields}
-    ${commonQuery}
+    ${whereQuery}
     sort ${SORTS[ordering]};
     limit ${pageSize};
     offset ${offset};
   `;
 
   const countQuery = `
-    ${commonQuery}
+    ${searchQuery}
+    ${whereQuery}
   `;
 
   const headers = {
@@ -145,7 +198,6 @@ export async function getIGDBGames(options: {
       : await countResponse.text();
 
     console.error("IGDB API error:", errorText);
-
     throw new Error("IGDB could not return game data.");
   }
 
@@ -183,6 +235,49 @@ export async function getIGDBGames(options: {
   };
 }
 
+export interface IGDBFilterOption {
+  id: number;
+  name: string;
+}
+
+export async function getIGDBFilterOptions(): Promise<{
+  genres: IGDBFilterOption[];
+  platforms: IGDBFilterOption[];
+}> {
+  const token = await getAccessToken();
+
+  const headers = {
+    "Client-ID": process.env.TWITCH_CLIENT_ID!,
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "text/plain",
+  };
+
+  const [genresResponse, platformsResponse] = await Promise.all([
+    fetch("https://api.igdb.com/v4/genres", {
+      method: "POST",
+      headers,
+      body: "fields id, name; sort name asc; limit 100;",
+      next: { revalidate: 86400 },
+    }),
+    fetch("https://api.igdb.com/v4/platforms", {
+      method: "POST",
+      headers,
+      body: "fields id, name; sort name asc; limit 500;",
+      next: { revalidate: 86400 },
+    }),
+  ]);
+
+  if (!genresResponse.ok || !platformsResponse.ok) {
+    throw new Error("Unable to load IGDB filter options.");
+  }
+
+  const [genres, platforms] = await Promise.all([
+    genresResponse.json() as Promise<IGDBFilterOption[]>,
+    platformsResponse.json() as Promise<IGDBFilterOption[]>,
+  ]);
+
+  return { genres, platforms };
+}
 
 export interface IGDBGameDetails {
   id: number;
@@ -274,7 +369,7 @@ export async function getIGDBGameDetails(
     where id = ${gameId};
   `;
 
-  const response = await fetch("https://api.igdb.com/v4/games", {
+  const response = await fetch(IGDB_URL, {
     method: "POST",
     headers: {
       "Client-ID": clientId,
@@ -293,8 +388,7 @@ export async function getIGDBGameDetails(
     throw new Error("Unable to fetch game details from IGDB.");
   }
 
-  const games =
-    (await response.json()) as IGDBGameDetails[];
+  const games = (await response.json()) as IGDBGameDetails[];
 
   return games[0] ?? null;
 }
